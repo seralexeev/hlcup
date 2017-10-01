@@ -8,6 +8,7 @@ using AutoMapper;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using static Newtonsoft.Json.JsonConvert;
 
 // ReSharper disable FieldCanBeMadeReadOnly.Local
@@ -169,7 +170,9 @@ namespace hlcup {
                         }
                     }
 
-                    return ctx.Response.WriteAsync($"{visits.Average(x => x.mark):N2}");
+                    return Json(ctx, new {
+                        avg = $"{visits.Average(x => x.mark):N2}"
+                    });
                 }
             }
 
@@ -181,19 +184,20 @@ namespace hlcup {
                 switch (ctx.GetRouteValue("entity")) {
                     case "users":
                         if (_data.Users[id] is User user) {
-                            var update = ReadFromBody<User>();
-
-                            _mapper.Map(update, user);
+                            var update = ReadFromBody<Dictionary<string, JToken>>();
+                            user.Update(update, _data);
                         }
                         break;
                     case "locations":
                         if (_data.Locations[id] is Location location) {
-                            return Json(ctx, location);
+                            var update = ReadFromBody<Dictionary<string, JToken>>();
+                            location.Update(update, _data);
                         }
                         break;
                     case "visits":
                         if (_data.Visits[id] is Visit visit) {
-                            return Json(ctx, visit);
+                            var update = ReadFromBody<Dictionary<string, JToken>>();
+                            visit.Update(update, _data);
                         }
                         break;
                 }
