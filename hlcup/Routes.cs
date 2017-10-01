@@ -46,6 +46,13 @@ namespace hlcup {
             return ctx.Response.WriteAsync(SerializeObject(obj));
         }
 
+        Task EmptyJson(HttpContext ctx) {
+            ctx.Response.StatusCode = (int) HttpStatusCode.OK;
+            ctx.Response.ContentType = "application/json";
+            return ctx.Response.WriteAsync("{}");
+        }
+
+
         public Task EntityById(HttpContext ctx) {
             if (int.TryParse(ctx.GetRouteValue("id").ToString(), out var id)) {
                 switch (ctx.GetRouteValue("entity")) {
@@ -73,7 +80,7 @@ namespace hlcup {
         public Task Visits(HttpContext ctx) {
             if (int.TryParse(ctx.GetRouteValue("id").ToString(), out var id)) {
                 if (_data.Users[id] is User user) {
-                    var visits = (IEnumerable<Visit>) user.Visits.Values;
+                    var visits = (IEnumerable<Visit>) user.Visits;
 
                     if (ctx.Request.Query.ContainsKey("fromDate")) {
                         if (int.TryParse(ctx.Request.Query["fromDate"], out var fromDate)) {
@@ -102,7 +109,7 @@ namespace hlcup {
                         visits = visits.Where(x => x.Location?.distance < toDistance);
                     }
 
-                    return Json(ctx, visits);
+                    return Json(ctx, visits.OrderBy(x => x.visited_at));
                 }
             }
 
@@ -184,37 +191,69 @@ namespace hlcup {
                 switch (ctx.GetRouteValue("entity")) {
                     case "users":
                         if (_data.Users[id] is User user) {
-                            var update = ReadFromBody<Dictionary<string, JToken>>();
+                            var update = ReadFromBody<Dictionary<string, JToken>>(ctx);
                             user.Update(update, _data);
                         }
-                        break;
+
+                        return EmptyJson(ctx);
                     case "locations":
                         if (_data.Locations[id] is Location location) {
-                            var update = ReadFromBody<Dictionary<string, JToken>>();
+                            var update = ReadFromBody<Dictionary<string, JToken>>(ctx);
                             location.Update(update, _data);
                         }
-                        break;
+
+                        return EmptyJson(ctx);
                     case "visits":
                         if (_data.Visits[id] is Visit visit) {
-                            var update = ReadFromBody<Dictionary<string, JToken>>();
+                            var update = ReadFromBody<Dictionary<string, JToken>>(ctx);
                             visit.Update(update, _data);
                         }
-                        break;
+                        return EmptyJson(ctx);
                 }
             }
 
             return NotFound(ctx);
-
-            T ReadFromBody<T>() {
-                using (var reader = new StreamReader(ctx.Request.Body))
-                using (var jtr = new JsonTextReader(reader)) {
-                    return _jsonSerializer.Deserialize<T>(jtr);
-                }
-            }
         }
 
         public Task Create(HttpContext ctx) {
-            return NotFound(ctx);
+            switch (ctx.GetRouteValue("entity")) {
+                case "users":
+                    var user = ReadFromBody<User>(ctx);
+                    _data.Users[user.id] = user;
+
+                    return EmptyJson(ctx);
+
+                case "locations":
+                    var location = ReadFromBody<Location>(ctx);
+                    _data.Locations[location.id] = location;
+
+                    return EmptyJson(ctx);
+
+                case "visits":
+                    var visit = ReadFromBody<Visit>(ctx);
+                    _data.Visits[visit.id] = visit;
+
+                    if (_data.Locations[visit.location] is Location loc) {
+                        visit.Location = loc;
+                        visit.Location.Visits.Add(visit);
+                    }
+
+                    if (_data.Users[visit.user] is User usr) {
+                        usr.Visits.Add(visit);
+                        visit.User = usr;
+                    }
+
+                    return EmptyJson(ctx);
+            }
+
+            return BadRequest(ctx);
+        }
+
+        T ReadFromBody<T>(HttpContext ctx) {
+            using (var reader = new StreamReader(ctx.Request.Body))
+            using (var jtr = new JsonTextReader(reader)) {
+                return _jsonSerializer.Deserialize<T>(jtr);
+            }
         }
     }
 }

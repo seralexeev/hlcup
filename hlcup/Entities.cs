@@ -1,20 +1,12 @@
-﻿using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.IO;
-using System.Text;
+﻿using System.Collections.Generic;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using static hlcup.Helpers;
 
 // ReSharper disable InconsistentNaming
 // ReSharper disable MemberCanBePrivate.Global
 // ReSharper disable UnassignedField.Global
 
 namespace hlcup {
-    class Helpers {
-        public const char BEGIN_OBJ = '{';
-    }
-
     public class AllData {
         public User[] Users;
         public Location[] Locations;
@@ -52,7 +44,7 @@ namespace hlcup {
         }
 
         [JsonIgnore]
-        public SortedList<int, Visit> Visits { get; set; } = new SortedList<int, Visit>();
+        public List<Visit> Visits { get; } = new List<Visit>();
     }
 
     public class Location {
@@ -81,7 +73,7 @@ namespace hlcup {
         }
 
         [JsonIgnore]
-        public List<Visit> Visits { get; set; } = new List<Visit>();
+        public List<Visit> Visits { get; } = new List<Visit>();
     }
 
     public class Visit {
@@ -94,9 +86,10 @@ namespace hlcup {
         public void Update(Dictionary<string, JToken> obj, AllData data) {
             if (obj.TryGetValue(nameof(Visit.location), out var jloc) && jloc.Value<int>() is var location &&
                 location != this.location) {
-//                data.Locations[this.location].Visits.Remove(this.user);
-//                this.user = user;
-//                data.Users[this.user].Visits.Add(this.visited_at, this);
+                data.Locations[this.location].Visits.Remove(this);
+                this.location = location;
+                Location = data.Locations[this.location];
+                Location.Visits.Add(this);
             }
 
             if (obj.TryGetValue(nameof(Visit.visited_at), out var visited_at)) {
@@ -105,9 +98,10 @@ namespace hlcup {
 
             if (obj.TryGetValue(nameof(Visit.user), out var juser) && juser.Value<int>() is var user &&
                 user != this.user) {
-                data.Users[this.user].Visits.Remove(this.user);
+                data.Users[this.user].Visits.Remove(this);
                 this.user = user;
-                data.Users[this.user].Visits.Add(this.visited_at, this);
+                User = data.Users[this.user];
+                User.Visits.Add(this);
             }
 
             if (obj.TryGetValue(nameof(Visit.mark), out var mark)) {

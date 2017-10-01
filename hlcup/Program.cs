@@ -117,7 +117,7 @@ namespace hlcup {
                         }
 
                         if (users[visit.user] is User user) {
-                            user.Visits.Add(visit.visited_at, visit);
+                            user.Visits.Add(visit);
                             visit.User = user;
                         }
                     }
