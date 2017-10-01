@@ -1,12 +1,19 @@
 ﻿using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
+using System.Text;
 using Newtonsoft.Json;
+using static hlcup.Helpers;
 
 namespace hlcup {
+    class Helpers {
+        public const char BEGIN_OBJ = '{';
+    }
+
     public class AllData {
-        public ConcurrentDictionary<int, User> Users;
-        public ConcurrentDictionary<int, Location> Locations;
-        public ConcurrentDictionary<int, Visit> Visits;
+        public User[] Users;
+        public Location[] Locations;
+        public Visit[] Visits;
     }
 
     public class User {

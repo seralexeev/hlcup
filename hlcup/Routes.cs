@@ -1,24 +1,32 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
+using AutoMapper;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Newtonsoft.Json;
 using static Newtonsoft.Json.JsonConvert;
+
+// ReSharper disable FieldCanBeMadeReadOnly.Local
+// ReSharper disable ArrangeTypeMemberModifiers
 
 namespace hlcup {
     public class Routes {
-        private readonly AllData _data;
+        AllData _data;
+        JsonSerializer _jsonSerializer = new JsonSerializer();
+        IMapper _mapper = Mapper.Instance;
 
         public Routes(AllData data) {
             _data = data;
         }
 
         public Task Stats(HttpContext ctx) => ctx.Response.WriteAsync(SerializeObject(new {
-            users = _data.Users.Count,
-            locations = _data.Locations.Count,
-            visits = _data.Visits.Count,
+            users = _data.Users.Length,
+            locations = _data.Locations.Length,
+            visits = _data.Visits.Length,
         }));
 
         Task NotFound(HttpContext ctx) {
@@ -31,22 +39,28 @@ namespace hlcup {
             return Task.CompletedTask;
         }
 
+        Task Json<T>(HttpContext ctx, T obj) {
+            ctx.Response.StatusCode = (int) HttpStatusCode.OK;
+            ctx.Response.ContentType = "application/json";
+            return ctx.Response.WriteAsync(SerializeObject(obj));
+        }
+
         public Task EntityById(HttpContext ctx) {
             if (int.TryParse(ctx.GetRouteValue("id").ToString(), out var id)) {
                 switch (ctx.GetRouteValue("entity")) {
                     case "users":
-                        if (_data.Users.TryGetValue(id, out var user)) {
-                            return ctx.Response.WriteAsync(SerializeObject(user));
+                        if (_data.Users[id] is User user) {
+                            return Json(ctx, user);
                         }
                         break;
                     case "locations":
-                        if (_data.Locations.TryGetValue(id, out var location)) {
-                            return ctx.Response.WriteAsync(SerializeObject(location));
+                        if (_data.Locations[id] is Location location) {
+                            return Json(ctx, location);
                         }
                         break;
                     case "visits":
-                        if (_data.Visits.TryGetValue(id, out var visit)) {
-                            return ctx.Response.WriteAsync(SerializeObject(visit));
+                        if (_data.Visits[id] is Visit visit) {
+                            return Json(ctx, visit);
                         }
                         break;
                 }
@@ -57,7 +71,7 @@ namespace hlcup {
 
         public Task Visits(HttpContext ctx) {
             if (int.TryParse(ctx.GetRouteValue("id").ToString(), out var id)) {
-                if (_data.Users.TryGetValue(id, out var user)) {
+                if (_data.Users[id] is User user) {
                     var visits = (IEnumerable<Visit>) user.Visits.Values;
 
                     if (ctx.Request.Query.ContainsKey("fromDate")) {
@@ -87,7 +101,7 @@ namespace hlcup {
                         visits = visits.Where(x => x.Location?.distance < toDistance);
                     }
 
-                    return ctx.Response.WriteAsync(SerializeObject(visits));
+                    return Json(ctx, visits);
                 }
             }
 
@@ -96,7 +110,7 @@ namespace hlcup {
 
         public Task Avg(HttpContext ctx) {
             if (int.TryParse(ctx.GetRouteValue("id").ToString(), out var id)) {
-                if (_data.Locations.TryGetValue(id, out var location)) {
+                if (_data.Locations[id] is Location location) {
                     var visits = (IEnumerable<Visit>) location.Visits;
 
                     var now = DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1)).TotalSeconds;
@@ -122,7 +136,6 @@ namespace hlcup {
                     if (ctx.Request.Query.ContainsKey("fromAge")) {
                         if (int.TryParse(ctx.Request.Query["fromAge"], out var fromAge)) {
                             visits = visits.Where(x => {
-
                                 var age = (now - x.User?.birth_date) / 31557600;
 
                                 return age > fromAge;
@@ -136,7 +149,6 @@ namespace hlcup {
                     if (ctx.Request.Query.ContainsKey("toAge")) {
                         if (int.TryParse(ctx.Request.Query["toAge"], out var toAge)) {
                             visits = visits.Where(x => {
-
                                 var age = (now - x.User?.birth_date) / 31557600;
 
                                 return age < toAge;
@@ -161,6 +173,43 @@ namespace hlcup {
                 }
             }
 
+            return NotFound(ctx);
+        }
+
+        public Task Update(HttpContext ctx) {
+            if (int.TryParse(ctx.GetRouteValue("id").ToString(), out var id)) {
+                switch (ctx.GetRouteValue("entity")) {
+                    case "users":
+                        if (_data.Users[id] is User user) {
+                            var update = ReadFromBody<User>();
+
+                            _mapper.Map(update, user);
+                        }
+                        break;
+                    case "locations":
+                        if (_data.Locations[id] is Location location) {
+                            return Json(ctx, location);
+                        }
+                        break;
+                    case "visits":
+                        if (_data.Visits[id] is Visit visit) {
+                            return Json(ctx, visit);
+                        }
+                        break;
+                }
+            }
+
+            return NotFound(ctx);
+
+            T ReadFromBody<T>() {
+                using (var reader = new StreamReader(ctx.Request.Body))
+                using (var jtr = new JsonTextReader(reader)) {
+                    return _jsonSerializer.Deserialize<T>(jtr);
+                }
+            }
+        }
+
+        public Task Create(HttpContext ctx) {
             return NotFound(ctx);
         }
     }

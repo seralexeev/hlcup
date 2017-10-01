@@ -1,7 +1,9 @@
-﻿using System.Collections.Concurrent;
+﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using AutoMapper;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Routing;
@@ -14,9 +16,28 @@ using static hlcup.Extensions;
 
 namespace hlcup {
     public class Program {
+        public Program() {
+            Mapper.Initialize(cfg => {
+                cfg.CreateMap<User, User>()
+                    .ForMember(x => x.id, x => x.Ignore())
+                    .ForMember(x => x.Visits, x => x.Ignore());
+
+                cfg.CreateMap<Location, Location>()
+                    .ForMember(x => x.id, x => x.Ignore())
+                    .ForMember(x => x.Visits, x => x.Ignore());
+
+                cfg.CreateMap<Visit, Visit>()
+                    .ForMember(x => x.id, x => x.Ignore())
+                    .ForMember(x => x.Location, x => x.Ignore())
+                    .ForMember(x => x.User, x => x.Ignore());
+            });
+        }
+
         public static void Main(string[] args) {
+            var dataPath = args.Length > 0 ? args[0] : "/data";
+
             var program = new Program();
-            var data = program.LoadData("../data");
+            var data = program.LoadData(dataPath);
             program.GetHostBuilder(new Routes(data)).Build().Run();
         }
 
@@ -29,24 +50,33 @@ namespace hlcup {
 
         public IWebHostBuilder GetHostBuilder(Routes routes) => new WebHostBuilder()
             .UseKestrel()
-            .UseUrls("http://*:5000")
+            .UseUrls("http://*:80")
             .ConfigureServices(cfg => cfg.AddRouting())
-            .Configure(cfg => cfg.UseRouter(new RouteBuilder(cfg)
-                .MapGet("{entity}/{id}", routes.EntityById)
-                .MapGet("users/{id}/visits", routes.Visits)
-                .MapGet("locations/{id}/avg", routes.Avg)
-                .MapGet("stats", routes.Stats)
-                .Build()));
+            .Configure(cfg => {
+                cfg.UseResponseBuffering();
+                cfg.UseRouter(new RouteBuilder(cfg)
+                    .MapGet("{entity}/{id}", routes.EntityById)
+                    .MapGet("users/{id}/visits", routes.Visits)
+                    .MapGet("locations/{id}/avg", routes.Avg)
+                    .MapGet("stats", routes.Stats)
+                    .MapPost("{entity}/{id}", routes.Update)
+                    .MapPost("{entity}/new", routes.Create)
+                    .Build());
+            });
 
         (long, bool) ReadOptions(string optsFile) {
             var opts = File.ReadLines(optsFile).ToArray();
-            return (int.Parse(opts[0]), opts[1] == "0" ? true : false);
+            return (int.Parse(opts[0]), opts[1] == "0");
         }
 
         AllData ScanDir(string dir) {
-            var users = new ConcurrentDictionary<int, User>();
-            var locations = new ConcurrentDictionary<int, Location>();
-            var visits = new ConcurrentDictionary<int, Visit>();
+            var users = new User[2_000_000];
+            var locations = new Location[1_000_000];
+            var visits = new Visit[11_000_000];
+
+            var rusers = 0;
+            var rlocations = 0;
+            var rvisits = 0;
 
             foreach (var file in Directory.GetFiles(dir).OrderBy(s => {
                 if (s.StartsWith($"{dir}/users")) {
@@ -65,30 +95,37 @@ namespace hlcup {
             })) {
                 if (file.StartsWith($"{dir}/users")) {
                     foreach (var user in ReadData<User>(file, "users")) {
-                        users.AddOrUpdate(user.id, user, (x, u) => u);
+                        users[user.id] = user;
+                        rusers++;
                     }
                 }
                 else if (file.StartsWith($"{dir}/locations")) {
                     foreach (var location in ReadData<Location>(file, "locations")) {
-                        locations.AddOrUpdate(location.id, location, (x, u) => u);
+                        locations[location.id] = location;
+                        rlocations++;
                     }
                 }
                 else if (file.StartsWith($"{dir}/visits")) {
                     foreach (var visit in ReadData<Visit>(file, "visits")) {
-                        visits.AddOrUpdate(visit.id, visit, (x, u) => u);
+                        visits[visit.id] = visit;
+                        rvisits++;
 
-                        if (locations.TryGetValue(visit.location, out var location)) {
+                        if (locations[visit.location] is Location location) {
                             visit.Location = location;
                             visit.Location.Visits.Add(visit);
                         }
 
-                        if (users.TryGetValue(visit.user, out var user)) {
+                        if (users[visit.user] is User user) {
                             user.Visits.Add(visit.visited_at, visit);
                             visit.User = user;
                         }
                     }
                 }
             }
+
+            println($"users={rusers}");
+            println($"locations={rlocations}");
+            println($"vists={rvisits}");
 
             return new AllData {
                 Users = users,
