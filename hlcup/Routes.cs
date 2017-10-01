@@ -193,26 +193,32 @@ namespace hlcup {
                         if (_data.Users[id] is User user) {
                             var update = ReadFromBody<Dictionary<string, JToken>>(ctx);
                             user.Update(update, _data);
-                        }
+                            return EmptyJson(ctx);
 
-                        return EmptyJson(ctx);
+                        }
+                        return NotFound(ctx);
+
                     case "locations":
                         if (_data.Locations[id] is Location location) {
                             var update = ReadFromBody<Dictionary<string, JToken>>(ctx);
                             location.Update(update, _data);
+                            return EmptyJson(ctx);
+
                         }
 
-                        return EmptyJson(ctx);
+                        return NotFound(ctx);
                     case "visits":
                         if (_data.Visits[id] is Visit visit) {
                             var update = ReadFromBody<Dictionary<string, JToken>>(ctx);
                             visit.Update(update, _data);
+                            return EmptyJson(ctx);
+
                         }
-                        return EmptyJson(ctx);
+                        return NotFound(ctx);
                 }
             }
 
-            return NotFound(ctx);
+            return BadRequest(ctx);
         }
 
         public Task Create(HttpContext ctx) {
