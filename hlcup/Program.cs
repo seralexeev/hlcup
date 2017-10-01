@@ -35,10 +35,11 @@ namespace hlcup {
 
         public static void Main(string[] args) {
             var dataPath = args.Length > 0 ? args[0] : "/data";
+            var port = args.Length > 1 ? args[1] : "80";
 
             var program = new Program();
             var data = program.LoadData(dataPath);
-            program.GetHostBuilder(new Routes(data)).Build().Run();
+            program.GetHostBuilder(new Routes(data), port).Build().Run();
         }
 
         public AllData LoadData(string dir) {
@@ -48,9 +49,9 @@ namespace hlcup {
             return ScanDir(dir);
         }
 
-        public IWebHostBuilder GetHostBuilder(Routes routes) => new WebHostBuilder()
+        public IWebHostBuilder GetHostBuilder(Routes routes, string port = "80") => new WebHostBuilder()
             .UseKestrel()
-            .UseUrls("http://*:80")
+            .UseUrls($"http://*:{port}")
             .ConfigureServices(cfg => cfg.AddRouting())
             .Configure(cfg => {
                 cfg.UseResponseBuffering();

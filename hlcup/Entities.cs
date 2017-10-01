@@ -94,9 +94,9 @@ namespace hlcup {
         public void Update(Dictionary<string, JToken> obj, AllData data) {
             if (obj.TryGetValue(nameof(Visit.location), out var jloc) && jloc.Value<int>() is var location &&
                 location != this.location) {
-                data.Locations[this.location].Visits.Remove(this.user);
-                this.user = user;
-                data.Users[this.user].Visits.Add(this.visited_at, this);
+//                data.Locations[this.location].Visits.Remove(this.user);
+//                this.user = user;
+//                data.Users[this.user].Visits.Add(this.visited_at, this);
             }
 
             if (obj.TryGetValue(nameof(Visit.visited_at), out var visited_at)) {
