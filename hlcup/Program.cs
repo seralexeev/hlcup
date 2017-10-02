@@ -3,6 +3,8 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -55,13 +57,22 @@ namespace hlcup {
             .ConfigureServices(cfg => cfg.AddRouting())
             .Configure(cfg => {
                 cfg.UseResponseBuffering();
+                cfg.Use(async (context, func) => {
+                    try {
+                        await func();
+                    }
+                    catch (Exception e) {
+//                        println(e.ToString());
+                        context.Response.StatusCode = (int) HttpStatusCode.BadRequest;
+                    }
+                });
                 cfg.UseRouter(new RouteBuilder(cfg)
                     .MapGet("{entity}/{id}", routes.EntityById)
                     .MapGet("users/{id}/visits", routes.Visits)
                     .MapGet("locations/{id}/avg", routes.Avg)
                     .MapGet("stats", routes.Stats)
-                    .MapPost("{entity}/{id}", routes.Update)
                     .MapPost("{entity}/new", routes.Create)
+                    .MapPost("{entity}/{id}", routes.Update)
                     .Build());
             });
 
@@ -71,9 +82,9 @@ namespace hlcup {
         }
 
         AllData ScanDir(string dir) {
-            var users = new User[2_000_000];
-            var locations = new Location[1_000_000];
-            var visits = new Visit[11_000_000];
+            var users = new User[1_000_200];
+            var locations = new Location[800_000];
+            var visits = new Visit[10_000_800];
 
             var rusers = 0;
             var rlocations = 0;
@@ -96,27 +107,27 @@ namespace hlcup {
             })) {
                 if (file.StartsWith($"{dir}/users")) {
                     foreach (var user in ReadData<User>(file, "users")) {
-                        users[user.id] = user;
+                        users[user.id.Value] = user;
                         rusers++;
                     }
                 }
                 else if (file.StartsWith($"{dir}/locations")) {
                     foreach (var location in ReadData<Location>(file, "locations")) {
-                        locations[location.id] = location;
+                        locations[location.id.Value] = location;
                         rlocations++;
                     }
                 }
                 else if (file.StartsWith($"{dir}/visits")) {
                     foreach (var visit in ReadData<Visit>(file, "visits")) {
-                        visits[visit.id] = visit;
+                        visits[visit.id.Value] = visit;
                         rvisits++;
 
-                        if (locations[visit.location] is Location location) {
+                        if (locations[visit.location.Value] is Location location) {
                             visit.Location = location;
                             visit.Location.Visits.Add(visit);
                         }
 
-                        if (users[visit.user] is User user) {
+                        if (users[visit.user.Value] is User user) {
                             user.Visits.Add(visit);
                             visit.User = user;
                         }
