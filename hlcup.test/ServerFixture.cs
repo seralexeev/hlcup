@@ -9,7 +9,8 @@ namespace hlcup.test {
         public ServerFixture() {
             var program = new Program();
             var data = program.LoadData("../../../../../../hdata");
-            _server = new TestServer(program.GetHostBuilder(new Routes(data)));
+            (Routes.Data, Routes.CurrentDate) = data;
+            _server = new TestServer(program.GetHostBuilder());
             Client = _server.CreateClient();
         }
 

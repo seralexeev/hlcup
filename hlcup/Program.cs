@@ -1,11 +1,8 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Threading.Tasks;
-using AutoMapper;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Routing;
@@ -18,40 +15,24 @@ using static hlcup.Extensions;
 
 namespace hlcup {
     public class Program {
-        public Program() {
-            Mapper.Initialize(cfg => {
-                cfg.CreateMap<User, User>()
-                    .ForMember(x => x.id, x => x.Ignore())
-                    .ForMember(x => x.Visits, x => x.Ignore());
-
-                cfg.CreateMap<Location, Location>()
-                    .ForMember(x => x.id, x => x.Ignore())
-                    .ForMember(x => x.Visits, x => x.Ignore());
-
-                cfg.CreateMap<Visit, Visit>()
-                    .ForMember(x => x.id, x => x.Ignore())
-                    .ForMember(x => x.Location, x => x.Ignore())
-                    .ForMember(x => x.User, x => x.Ignore());
-            });
-        }
-
         public static void Main(string[] args) {
             var dataPath = args.Length > 0 ? args[0] : "/data";
             var port = args.Length > 1 ? args[1] : "80";
 
             var program = new Program();
             var data = program.LoadData(dataPath);
-            program.GetHostBuilder(new Routes(data), port).Build().Run();
+            (Routes.Data, Routes.CurrentDate) = data;
+            program.GetHostBuilder(port).Build().Run();
         }
 
-        public AllData LoadData(string dir) {
+        public (AllData, long genTime) LoadData(string dir) {
             var (genTime, isTest) = ReadOptions($"{dir}/options.txt");
             println(isTest ? "TEST" : "RAITING");
 
-            return ScanDir(dir);
+            return (ScanDir(dir), genTime);
         }
 
-        public IWebHostBuilder GetHostBuilder(Routes routes, string port = "80") => new WebHostBuilder()
+        public IWebHostBuilder GetHostBuilder(string port = "80") => new WebHostBuilder()
             .UseKestrel()
             .UseUrls($"http://*:{port}")
             .ConfigureServices(cfg => cfg.AddRouting())
@@ -60,19 +41,18 @@ namespace hlcup {
                 cfg.Use(async (context, func) => {
                     try {
                         await func();
-                    }
-                    catch (Exception e) {
+                    } catch (Exception e) {
 //                        println(e.ToString());
                         context.Response.StatusCode = (int) HttpStatusCode.BadRequest;
                     }
                 });
                 cfg.UseRouter(new RouteBuilder(cfg)
-                    .MapGet("{entity}/{id}", routes.EntityById)
-                    .MapGet("users/{id}/visits", routes.Visits)
-                    .MapGet("locations/{id}/avg", routes.Avg)
-                    .MapGet("stats", routes.Stats)
-                    .MapPost("{entity}/new", routes.Create)
-                    .MapPost("{entity}/{id}", routes.Update)
+                    .MapGet("{entity}/{id}", Routes.EntityById)
+                    .MapGet("users/{id}/visits", Routes.Visits)
+                    .MapGet("locations/{id}/avg", Routes.Avg)
+                    .MapGet("stats", Routes.Stats)
+                    .MapPost("{entity}/new", Routes.Create)
+                    .MapPost("{entity}/{id}", Routes.Update)
                     .Build());
             });
 
@@ -82,42 +62,26 @@ namespace hlcup {
         }
 
         AllData ScanDir(string dir) {
-            var users = new User[1_000_200];
-            var locations = new Location[800_000];
-            var visits = new Visit[10_000_800];
+            var users = new User[1_500_200];
+            var locations = new Location[1_000_000];
+            var visits = new Visit[10_500_000];
 
             var rusers = 0;
             var rlocations = 0;
             var rvisits = 0;
 
-            foreach (var file in Directory.GetFiles(dir).OrderBy(s => {
-                if (s.StartsWith($"{dir}/users")) {
-                    return 0;
-                }
-
-                if (s.StartsWith($"{dir}/locations")) {
-                    return 1;
-                }
-
-                if (s.StartsWith($"{dir}/visits")) {
-                    return 2;
-                }
-
-                return 10;
-            })) {
+            foreach (var file in Directory.GetFiles(dir).OrderBy(FilesOrder)) {
                 if (file.StartsWith($"{dir}/users")) {
                     foreach (var user in ReadData<User>(file, "users")) {
                         users[user.id.Value] = user;
                         rusers++;
                     }
-                }
-                else if (file.StartsWith($"{dir}/locations")) {
+                } else if (file.StartsWith($"{dir}/locations")) {
                     foreach (var location in ReadData<Location>(file, "locations")) {
                         locations[location.id.Value] = location;
                         rlocations++;
                     }
-                }
-                else if (file.StartsWith($"{dir}/visits")) {
+                } else if (file.StartsWith($"{dir}/visits")) {
                     foreach (var visit in ReadData<Visit>(file, "visits")) {
                         visits[visit.id.Value] = visit;
                         rvisits++;
@@ -135,9 +99,27 @@ namespace hlcup {
                 }
             }
 
+            int FilesOrder(string s) {
+                if (s.StartsWith($"{dir}/users")) {
+                    return 0;
+                }
+
+                if (s.StartsWith($"{dir}/locations")) {
+                    return 1;
+                }
+
+                if (s.StartsWith($"{dir}/visits")) {
+                    return 2;
+                }
+
+                return 10;
+            }
+
             println($"users={rusers}");
             println($"locations={rlocations}");
             println($"vists={rvisits}");
+
+            GC.Collect();
 
             return new AllData {
                 Users = users,

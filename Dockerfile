@@ -1,7 +1,7 @@
 FROM microsoft/dotnet:latest
 WORKDIR /build
 COPY ./hlcup .
-RUN dotnet publish -c release -o out
+RUN dotnet publish -c release -o out -m
 
 FROM microsoft/dotnet:runtime
 RUN apt-get update && apt-get install unzip
