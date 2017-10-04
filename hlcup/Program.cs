@@ -108,7 +108,7 @@ namespace hlcup {
                             visit.User = user;
                         }
 
-                        visit.UpdateCache();
+//                        visit.UpdateCache();
                     }
                 }
             }

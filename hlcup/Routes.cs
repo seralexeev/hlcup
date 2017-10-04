@@ -318,7 +318,7 @@ namespace hlcup {
                         visit.User = usr;
                     }
 
-                    visit.UpdateCache();
+//                    visit.UpdateCache();
                     return EmptyJson(ctx);
 
                 default:

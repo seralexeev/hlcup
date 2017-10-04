@@ -132,7 +132,7 @@ namespace hlcup {
                 this.mark = mark.Value<int?>();
             }
 
-            UpdateCache();
+//            UpdateCache();
         }
 
         public void UpdateCache() {
