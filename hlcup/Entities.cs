@@ -2,6 +2,8 @@
 using System.Runtime.Serialization;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+// ReSharper disable ClassNeverInstantiated.Global
+// ReSharper disable PossibleInvalidOperationException
 
 // ReSharper disable InconsistentNaming
 // ReSharper disable MemberCanBePrivate.Global
@@ -30,7 +32,7 @@ namespace hlcup {
         [JsonIgnore, IgnoreDataMember]
         public int age;
 
-        public void CalculateAge() => age = (int)((AllData.currentDate - birth_date) / 31557600).Value;
+        public void CalculateAge() => age = (int)((AllData.currentDate - birth_date.Value) / 31557600);
 
         public bool IsValid() => id != null && email != null && first_name != null && last_name != null &&
                                  gender != null && birth_date != null;
@@ -54,9 +56,8 @@ namespace hlcup {
 
             if (obj.TryGetValue(nameof(User.birth_date), out var birth_date)) {
                 this.birth_date = birth_date.Value<int?>();
+                CalculateAge();
             }
-
-            CalculateAge();
         }
 
         [JsonIgnore, IgnoreDataMember]

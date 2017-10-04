@@ -210,7 +210,6 @@ namespace hlcup {
                 case "users":
                     if (id < AllData.users.Length && AllData.users[id] is User user) {
                         user.Update(update);
-                        user.CalculateAge();
                         return EmptyJson(ctx);
                     }
                     return NotFound(ctx);
