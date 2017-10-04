@@ -14,7 +14,11 @@ namespace hlcup {
         public Visit[] Visits;
     }
 
-    public class User {
+    public abstract class Entity {
+        [JsonIgnore, IgnoreDataMember] public byte[] bytes;
+    }
+
+    public class User : Entity {
         public int? id;
         public string email;
         public string first_name;
@@ -45,13 +49,19 @@ namespace hlcup {
             if (obj.TryGetValue(nameof(User.birth_date), out var birth_date)) {
                 this.birth_date = birth_date.Value<int?>();
             }
+
+            UpdateCache();
+        }
+
+        public void UpdateCache() {
+            bytes = Utf8Json.JsonSerializer.Serialize(this);
         }
 
         [JsonIgnore, IgnoreDataMember]
         public List<Visit> Visits { get; } = new List<Visit>();
     }
 
-    public class Location {
+    public class Location : Entity {
         public int? id;
         public string place;
         public string country;
@@ -76,13 +86,19 @@ namespace hlcup {
             if (obj.TryGetValue(nameof(Location.distance), out var distance)) {
                 this.distance = distance.Value<int?>();
             }
+
+            UpdateCache();
+        }
+
+        public void UpdateCache() {
+            bytes = Utf8Json.JsonSerializer.Serialize(this);
         }
 
         [JsonIgnore, IgnoreDataMember]
         public List<Visit> Visits { get; } = new List<Visit>();
     }
 
-    public class Visit {
+    public class Visit : Entity {
         public int? id;
         public int? location;
         public int? user;
@@ -115,6 +131,12 @@ namespace hlcup {
             if (obj.TryGetValue(nameof(Visit.mark), out var mark)) {
                 this.mark = mark.Value<int?>();
             }
+
+            UpdateCache();
+        }
+
+        public void UpdateCache() {
+            bytes = Utf8Json.JsonSerializer.Serialize(this);
         }
 
         [JsonIgnore, IgnoreDataMember]

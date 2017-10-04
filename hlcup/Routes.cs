@@ -42,10 +42,16 @@ namespace hlcup {
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        static Task Json<T>(HttpContext ctx, T obj) {
+        static Task Json<T>(HttpContext ctx, T obj) where T : Entity {
             ctx.Response.StatusCode = (int) HttpStatusCode.OK;
             ctx.Response.ContentType = "application/json";
-            Utf8Json.JsonSerializer.Serialize(ctx.Response.Body, obj);
+
+            if (obj.bytes != null) {
+                ctx.Response.Body.Write(obj.bytes, 0, obj.bytes.Length);
+            } else {
+                Utf8Json.JsonSerializer.Serialize(ctx.Response.Body, obj);
+            }
+
             return Task.CompletedTask;
         }
 
@@ -185,7 +191,7 @@ namespace hlcup {
             }
 
             return Json(ctx, new Avg {
-                avg = Math.Round(Average(), 5)
+                avg = Math.Round(Average(), 5, MidpointRounding.AwayFromZero)
             });
 
             IEnumerable<Visit> Filter(IEnumerable<Visit> vs) {
@@ -283,6 +289,7 @@ namespace hlcup {
                         return BadRequest(ctx);
 
                     Data.Users[user.id.Value] = user;
+                    user.UpdateCache();
                     return EmptyJson(ctx);
 
                 case "locations":
@@ -291,6 +298,7 @@ namespace hlcup {
                         return BadRequest(ctx);
 
                     Data.Locations[location.id.Value] = location;
+                    location.UpdateCache();
                     return EmptyJson(ctx);
 
                 case "visits":
@@ -310,6 +318,7 @@ namespace hlcup {
                         visit.User = usr;
                     }
 
+                    visit.UpdateCache();
                     return EmptyJson(ctx);
 
                 default:
@@ -321,7 +330,7 @@ namespace hlcup {
         static T ReadFromBody<T>(HttpContext ctx) => Utf8Json.JsonSerializer.Deserialize<T>(ctx.Request.Body);
     }
 
-    public class VisitsVm {
+    public class VisitsVm : Entity {
         public IEnumerable<VisitVm> visits;
 
         public class VisitVm {
@@ -331,7 +340,7 @@ namespace hlcup {
         }
     }
 
-    public class Avg {
+    public class Avg : Entity {
         public double avg;
     }
 }

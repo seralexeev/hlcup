@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Server.Kestrel.Transport.Abstractions.Internal;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -33,18 +35,26 @@ namespace hlcup {
         }
 
         public IWebHostBuilder GetHostBuilder(string port = "80") => new WebHostBuilder()
-            .UseKestrel()
+            .UseKestrel(options => {
+                options.AllowSynchronousIO = true;
+//                options.ApplicationSchedulingMode = SchedulingMode.Inline;
+//                options.Limits.KeepAliveTimeout = TimeSpan.FromMilliseconds(1);
+                options.Limits.MaxConcurrentConnections = null;
+            })
+            .UseLibuv(options => {
+                options.ThreadCount = 2;
+            })
             .UseUrls($"http://*:{port}")
             .ConfigureServices(cfg => cfg.AddRouting())
             .Configure(cfg => {
                 cfg.UseResponseBuffering();
-                cfg.Use(async (context, func) => {
+                cfg.Use((context, func) => {
                     try {
-                        await func();
-                    } catch (Exception e) {
-//                        println(e.ToString());
+                        func().Wait();
+                    } catch (Exception) {
                         context.Response.StatusCode = (int) HttpStatusCode.BadRequest;
                     }
+                    return Task.CompletedTask;
                 });
                 cfg.UseRouter(new RouteBuilder(cfg)
                     .MapGet("{entity}/{id}", Routes.EntityById)
@@ -74,11 +84,13 @@ namespace hlcup {
                 if (file.StartsWith($"{dir}/users")) {
                     foreach (var user in ReadData<User>(file, "users")) {
                         users[user.id.Value] = user;
+                        user.UpdateCache();
                         rusers++;
                     }
                 } else if (file.StartsWith($"{dir}/locations")) {
                     foreach (var location in ReadData<Location>(file, "locations")) {
                         locations[location.id.Value] = location;
+                        location.UpdateCache();
                         rlocations++;
                     }
                 } else if (file.StartsWith($"{dir}/visits")) {
@@ -95,6 +107,8 @@ namespace hlcup {
                             user.Visits.Add(visit);
                             visit.User = user;
                         }
+
+                        visit.UpdateCache();
                     }
                 }
             }
@@ -119,7 +133,7 @@ namespace hlcup {
             println($"locations={rlocations}");
             println($"vists={rvisits}");
 
-            GC.Collect();
+            GC.Collect(2, GCCollectionMode.Forced);
 
             return new AllData {
                 Users = users,
@@ -131,8 +145,8 @@ namespace hlcup {
         IEnumerable<T> ReadData<T>(string file, string prop) {
             using (var sr = new StreamReader(File.Open(file, FileMode.Open)))
             using (var jsonTextReader = new JsonTextReader(sr)) {
-                return (new JsonSerializer()
-                    .Deserialize<JObject>(jsonTextReader)[prop]).ToObject<IEnumerable<T>>();
+                return new JsonSerializer()
+                    .Deserialize<JObject>(jsonTextReader)[prop].ToObject<IEnumerable<T>>();
             }
         }
     }
