@@ -18,12 +18,11 @@ namespace hlcup {
             var dataPath = args.Length > 0 ? args[0] : "/data";
             var port = args.Length > 1 ? args[1] : "80";
 
-            LoadData(dataPath);
-            
+            ScanDir(dataPath);
+            var isTest = ReadOptions($"{dataPath}/options.txt");
+            println(isTest);
             GetHostBuilder(port).Build().Run();
         }
-
-        public static void LoadData(string dir) => (AllData.currentDate, _) = ReadOptions($"{dir}/options.txt");
 
         public static IWebHostBuilder GetHostBuilder(string port = "80") => new WebHostBuilder()
             .UseKestrel(options => {
@@ -72,9 +71,10 @@ namespace hlcup {
                 });
             });
 
-        static (long, bool) ReadOptions(string optsFile) {
+        static bool ReadOptions(string optsFile) {
             var opts = File.ReadLines(optsFile).ToArray();
-            return (int.Parse(opts[0]), opts[1] == "0");
+            AllData.currentDate = int.Parse(opts[0]);
+            return opts[1] == "0";
         }
 
         static void ScanDir(string dir) {
