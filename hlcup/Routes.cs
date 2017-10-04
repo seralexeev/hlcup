@@ -238,7 +238,7 @@ namespace hlcup {
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Task Update(HttpContext ctx, string idStr) {
+        public static Task Update(HttpContext ctx, string entity, string idStr) {
             if (!int.TryParse(idStr, out var id))
                 return BadRequest(ctx);
 
@@ -252,7 +252,7 @@ namespace hlcup {
                 return BadRequest(ctx);
             }
 
-            switch (ctx.GetRouteValue("entity")) {
+            switch (entity) {
                 case "users":
                     if (id < Data.Users.Length && Data.Users[id] is User user) {
                         user.Update(update, Data);

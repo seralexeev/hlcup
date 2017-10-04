@@ -41,59 +41,34 @@ namespace hlcup {
                 options.AllowSynchronousIO = true;
                 options.Limits.MaxConcurrentConnections = null;
             })
-            .UseLibuv(options => {
-                options.ThreadCount = 2;
-            })
+            .UseLibuv(options => { options.ThreadCount = 2; })
             .UseUrls($"http://*:{port}")
             .ConfigureServices(cfg => cfg.AddRouting())
             .Configure(cfg => {
                 cfg.UseResponseBuffering();
                 cfg.Use((context, func) => {
                     var parts = context.Request.Path.Value.Trim('/').ToLower().Split('/');
-                    
-                    if (context.Request.Method == HttpMethod.Get.Method 
-                        && parts.Length == 2 
-                        && (parts[0] == "users" || parts[0] == "locations" || parts[0] == "visits")) {
-                        return Routes.EntityById(context, parts[0], parts[1]);
+                    switch (context.Request.Method) {
+                        case "GET" 
+                            when parts.Length == 2 && (parts[0] == "users" || parts[0] == "locations" || parts[0] == "visits"):
+                            return Routes.EntityById(context, parts[0], parts[1]);
+                        case "GET" 
+                            when parts.Length == 3 && parts[0] == "users" && parts[2] == "visits":
+                            return Routes.Visits(context, parts[1]);
+                        case "GET" 
+                            when parts.Length == 3 && parts[0] == "locations" && parts[2] == "avg":
+                            return Routes.Avg(context, parts[1]);
+                        case "POST" 
+                            when parts.Length == 2 && (parts[0] == "users" || parts[0] == "locations" || parts[0] == "visits") && parts[1] == "new":
+                            return Routes.Create(context, parts[0]);
+                        case "POST" 
+                            when parts.Length == 2 && (parts[0] == "users" || parts[0] == "locations" || parts[0] == "visits"):
+                            return Routes.Update(context, parts[0], parts[1]);
+                        default:
+                            context.Response.StatusCode = (int) HttpStatusCode.NotFound;
+                            return Task.CompletedTask;
                     }
-
-                    if (context.Request.Method == HttpMethod.Get.Method 
-                        && parts.Length == 3 
-                        && parts[0] == "users" 
-                        && parts[2] == "visits") {
-                        return Routes.Visits(context, parts[1]);
-                    }
-                    
-                    if (context.Request.Method == HttpMethod.Get.Method 
-                        && parts.Length == 3 
-                        && parts[0] == "locations" 
-                        && parts[2] == "avg") {
-                        return Routes.Avg(context, parts[1]);
-                    }
-                    
-                    if (context.Request.Method == HttpMethod.Post.Method 
-                        && parts.Length == 2 
-                        && (parts[0] == "users" || parts[0] == "locations" || parts[0] == "visits") 
-                        && parts[1] == "new") {
-                        return Routes.Create(context, parts[1]);
-                    }
-                    
-                    if (context.Request.Method == HttpMethod.Post.Method 
-                        && parts.Length == 2 
-                        && (parts[0] == "users" || parts[0] == "locations" || parts[0] == "visits")) {
-                        return Routes.Update(context, parts[1]);
-                    }
-                    return Task.CompletedTask;
                 });
-                
-//                cfg.UseRouter(new RouteBuilder(cfg)
-//                    .MapGet("{entity}/{id}", Routes.EntityById)
-//                    .MapGet("users/{id}/visits", ctx => Routes.Visits(ctx))
-//                    .MapGet("locations/{id}/avg", ctx => Routes.Avg(ctx))
-//                    .MapGet("stats", Routes.Stats)
-//                    .MapPost("{entity}/new", ctx => Routes.Create(ctx))
-//                    .MapPost("{entity}/{id}", ctx => Routes.Update(ctx))
-//                    .Build());
             });
 
         (long, bool) ReadOptions(string optsFile) {
@@ -117,13 +92,15 @@ namespace hlcup {
 //                        user.UpdateCache();
                         rusers++;
                     }
-                } else if (file.StartsWith($"{dir}/locations")) {
+                }
+                else if (file.StartsWith($"{dir}/locations")) {
                     foreach (var location in ReadData<Location>(file, "locations")) {
                         locations[location.id.Value] = location;
 //                        location.UpdateCache();
                         rlocations++;
                     }
-                } else if (file.StartsWith($"{dir}/visits")) {
+                }
+                else if (file.StartsWith($"{dir}/visits")) {
                     foreach (var visit in ReadData<Visit>(file, "visits")) {
                         visits[visit.id.Value] = visit;
                         rvisits++;
