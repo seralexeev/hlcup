@@ -50,7 +50,7 @@ namespace hlcup {
                 this.birth_date = birth_date.Value<int?>();
             }
 
-            UpdateCache();
+//            UpdateCache();
         }
 
         public void UpdateCache() {
@@ -87,7 +87,7 @@ namespace hlcup {
                 this.distance = distance.Value<int?>();
             }
 
-            UpdateCache();
+//            UpdateCache();
         }
 
         public void UpdateCache() {

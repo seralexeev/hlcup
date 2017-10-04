@@ -63,11 +63,11 @@ namespace hlcup {
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Task EntityById(HttpContext ctx) {
-            if (!int.TryParse(ctx.GetRouteValue("id").ToString(), out var id))
+        public static Task EntityById(HttpContext ctx, string entity, string idStr) {
+            if (!int.TryParse(idStr, out var id))
                 return NotFound(ctx);
 
-            switch (ctx.GetRouteValue("entity")) {
+            switch (entity) {
                 case "users" when id < Data.Users.Length && Data.Users[id] is User user:
                     return Json(ctx, user);
                 case "locations" when id < Data.Locations.Length && Data.Locations[id] is Location location:
@@ -80,10 +80,8 @@ namespace hlcup {
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Task Visits(HttpContext ctx) {
-            var routeData = ctx.GetRouteData().Values;
-
-            if (int.TryParse((string) routeData["id"], out var id)
+        public static Task Visits(HttpContext ctx, string idStr) {
+            if (int.TryParse(idStr, out var id)
                 && id < Data.Users.Length && Data.Users[id] is User user) {
                 var visits = (IEnumerable<Visit>) user.Visits;
 
@@ -129,10 +127,8 @@ namespace hlcup {
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Task Avg(HttpContext ctx) {
-            var routeData = ctx.GetRouteData().Values;
-
-            if (!int.TryParse(routeData["id"].ToString(), out var id))
+        public static Task Avg(HttpContext ctx, string idStr) {
+            if (!int.TryParse(idStr, out var id))
                 return NotFound(ctx);
 
             if (id >= Data.Locations.Length || !(Data.Locations[id] is Location location))
@@ -242,8 +238,8 @@ namespace hlcup {
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Task Update(HttpContext ctx) {
-            if (!int.TryParse(ctx.GetRouteValue("id").ToString(), out var id))
+        public static Task Update(HttpContext ctx, string idStr) {
+            if (!int.TryParse(idStr, out var id))
                 return BadRequest(ctx);
 
             Dictionary<string, JValue> update;
@@ -281,15 +277,15 @@ namespace hlcup {
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Task Create(HttpContext ctx) {
-            switch (ctx.GetRouteValue("entity")) {
+        public static Task Create(HttpContext ctx, string entity) {
+            switch (entity) {
                 case "users":
                     var user = ReadFromBody<User>(ctx);
                     if (!user.IsValid())
                         return BadRequest(ctx);
 
                     Data.Users[user.id.Value] = user;
-                    user.UpdateCache();
+//                    user.UpdateCache();
                     return EmptyJson(ctx);
 
                 case "locations":
@@ -298,7 +294,7 @@ namespace hlcup {
                         return BadRequest(ctx);
 
                     Data.Locations[location.id.Value] = location;
-                    location.UpdateCache();
+//                    location.UpdateCache();
                     return EmptyJson(ctx);
 
                 case "visits":
