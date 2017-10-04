@@ -7,10 +7,9 @@ namespace hlcup.test {
         readonly TestServer _server;
 
         public ServerFixture() {
-            var program = new Program();
-            var data = program.LoadData("../../../../../../hdata");
-            (Routes.Data, Routes.CurrentDate) = data;
-            _server = new TestServer(program.GetHostBuilder());
+//            var data = Program.LoadData("../../../../../../hdata");
+//            (Routes.Data, Routes.Data.currentDate) = data;
+            _server = new TestServer(Program.GetHostBuilder());
             Client = _server.CreateClient();
         }
 

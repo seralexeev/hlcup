@@ -8,10 +8,11 @@ using Newtonsoft.Json.Linq;
 // ReSharper disable UnassignedField.Global
 
 namespace hlcup {
-    public class AllData {
-        public User[] Users;
-        public Location[] Locations;
-        public Visit[] Visits;
+    public static class AllData {
+        public static User[] users;
+        public static Location[] locations;
+        public static Visit[] visits;
+        public static long currentDate;
     }
 
     public abstract class Entity {
@@ -26,10 +27,15 @@ namespace hlcup {
         public char? gender;
         public int? birth_date;
 
+        [JsonIgnore, IgnoreDataMember]
+        public int age;
+
+        public void CalculateAge() => age = (int)((AllData.currentDate - birth_date) / 31557600).Value;
+
         public bool IsValid() => id != null && email != null && first_name != null && last_name != null &&
                                  gender != null && birth_date != null;
 
-        public void Update(Dictionary<string, JValue> obj, AllData data) {
+        public void Update(Dictionary<string, JValue> obj) {
             if (obj.TryGetValue(nameof(User.email), out var email)) {
                 this.email = email.Value<string>();
             }
@@ -50,11 +56,7 @@ namespace hlcup {
                 this.birth_date = birth_date.Value<int?>();
             }
 
-//            UpdateCache();
-        }
-
-        public void UpdateCache() {
-            bytes = Utf8Json.JsonSerializer.Serialize(this);
+            CalculateAge();
         }
 
         [JsonIgnore, IgnoreDataMember]
@@ -70,7 +72,7 @@ namespace hlcup {
 
         public bool IsValid() => id != null && place != null && country != null && city != null && distance != null;
 
-        public void Update(Dictionary<string, JValue> obj, AllData data) {
+        public void Update(Dictionary<string, JValue> obj) {
             if (obj.TryGetValue(nameof(Location.place), out var place)) {
                 this.place = place.Value<string>();
             }
@@ -86,12 +88,6 @@ namespace hlcup {
             if (obj.TryGetValue(nameof(Location.distance), out var distance)) {
                 this.distance = distance.Value<int?>();
             }
-
-//            UpdateCache();
-        }
-
-        public void UpdateCache() {
-            bytes = Utf8Json.JsonSerializer.Serialize(this);
         }
 
         [JsonIgnore, IgnoreDataMember]
@@ -107,12 +103,12 @@ namespace hlcup {
 
         public bool IsValid() => id != null && location != null && user != null && visited_at != null && mark != null;
 
-        public void Update(Dictionary<string, JValue> obj, AllData data) {
+        public void Update(Dictionary<string, JValue> obj) {
             if (obj.TryGetValue(nameof(Visit.location), out var jloc) && jloc.Value<int?>() is var location &&
                 location != this.location) {
-                data.Locations[this.location.Value].Visits.Remove(this);
+                AllData.locations[this.location.Value].Visits.Remove(this);
                 this.location = location;
-                Location = data.Locations[this.location.Value];
+                Location = AllData.locations[this.location.Value];
                 Location.Visits.Add(this);
             }
 
@@ -122,21 +118,15 @@ namespace hlcup {
 
             if (obj.TryGetValue(nameof(Visit.user), out var juser) && juser.Value<int?>() is var user &&
                 user != this.user) {
-                data.Users[this.user.Value].Visits.Remove(this);
+                AllData.users[this.user.Value].Visits.Remove(this);
                 this.user = user;
-                User = data.Users[this.user.Value];
+                User = AllData.users[this.user.Value];
                 User.Visits.Add(this);
             }
 
             if (obj.TryGetValue(nameof(Visit.mark), out var mark)) {
                 this.mark = mark.Value<int?>();
             }
-
-//            UpdateCache();
-        }
-
-        public void UpdateCache() {
-            bytes = Utf8Json.JsonSerializer.Serialize(this);
         }
 
         [JsonIgnore, IgnoreDataMember]
