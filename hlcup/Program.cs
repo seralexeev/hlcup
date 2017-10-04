@@ -32,15 +32,16 @@ namespace hlcup {
             .UseLibuv(options => { options.ThreadCount = 2; })
             .UseUrls($"http://*:{port}")
             .Configure(cfg => {
-                cfg.UseResponseBuffering();
                 cfg.Use((context, _) => {
                     try {
-                        return HandleRequest();
+                        HandleRequest();
                     } catch {
                         context.Response.StatusCode = (int) HttpStatusCode.BadRequest;
-                        return Task.CompletedTask;
                     }
-
+                    
+                    new BufferingWriteStream(context.Response.Body).Flush();
+                    return Task.CompletedTask;
+                    
                     Task HandleRequest() {
                         var parts = context.Request.Path.Value.Trim('/').ToLower().Split('/');
                         switch (context.Request.Method) {
