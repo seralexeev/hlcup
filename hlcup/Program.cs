@@ -28,43 +28,60 @@ namespace hlcup {
             .UseKestrel()
             .UseUrls($"http://*:{port}")
             .Configure(cfg => {
-                cfg.UseResponseBuffering();
                 cfg.Run(ctx => {
+                    var body = Routes.empty;
+                    ctx.Response.Headers["Connection"] = "keep-alive";
                     try {
-                        HandleRequest();
+                        var parts = ctx.Request.Path.Value.ToLower().Split('/', StringSplitOptions.RemoveEmptyEntries);
+                        switch (ctx.Request.Method) {
+                            case "GET"
+                            when parts.Length == 2 && parts[0] is string entity &&
+                                 (entity == "users" ||
+                                  entity == "locations" ||
+                                  entity == "visits"):
+                                body = Routes.EntityById(ctx, entity, parts[1]);
+                                break;
+
+                            case "GET"
+                            when parts.Length == 3 && parts[0] == "users" && parts[2] == "visits":
+                                body = Routes.Visits(ctx, parts[1]);
+                                break;
+
+                            case "GET"
+                            when parts.Length == 3 && parts[0] == "locations" && parts[2] == "avg":
+                                body = Routes.Avg(ctx, parts[1]);
+                                break;
+
+                            case "POST"
+                            when parts.Length == 2 && parts[1] == "new" && parts[0] is string entity &&
+                                 (entity == "users" ||
+                                  entity == "locations" ||
+                                  entity == "visits"):
+                                body = Routes.Create(ctx, entity);
+                                break;
+
+                            case "POST"
+                            when parts.Length == 2 && parts[0] is string entity &&
+                                 (entity == "users" ||
+                                  entity == "locations" ||
+                                  entity == "visits"):
+                                body = Routes.Update(ctx, parts[0], parts[1]);
+                                break;
+
+                            default:
+                                ctx.Response.StatusCode = (int) HttpStatusCode.NotFound;
+                                break;
+                        }
                     } catch {
                         ctx.Response.StatusCode = (int) HttpStatusCode.BadRequest;
                     }
- 
-                    return Task.CompletedTask;
-                    
-                    Task HandleRequest() {
-                        var parts = ctx.Request.Path.Value.Trim('/').ToLower().Split('/');
-                        switch (ctx.Request.Method) {
-                            case "GET"
-                            when parts.Length == 2 &&
-                                 (parts[0] == "users" || parts[0] == "locations" || parts[0] == "visits"):
-                                return Routes.EntityById(ctx, parts[0], parts[1]);
-                            case "GET"
-                            when parts.Length == 3 && parts[0] == "users" && parts[2] == "visits":
-                                return Routes.Visits(ctx, parts[1]);
-                            case "GET"
-                            when parts.Length == 3 && parts[0] == "locations" && parts[2] == "avg":
-                                return Routes.Avg(ctx, parts[1]);
-                            case "POST"
-                            when parts.Length == 2 &&
-                                 (parts[0] == "users" || parts[0] == "locations" || parts[0] == "visits") &&
-                                 parts[1] == "new":
-                                return Routes.Create(ctx, parts[0]);
-                            case "POST"
-                            when parts.Length == 2 &&
-                                 (parts[0] == "users" || parts[0] == "locations" || parts[0] == "visits"):
-                                return Routes.Update(ctx, parts[0], parts[1]);
-                            default:
-                                ctx.Response.StatusCode = (int) HttpStatusCode.NotFound;
-                                return Task.CompletedTask;
-                        }
+
+                    if (body.Length > 0) {
+                        ctx.Response.ContentLength = body.Length;
+                        ctx.Response.Body.Write(body, 0, body.Length);
                     }
+
+                    return Task.CompletedTask;
                 });
             });
 

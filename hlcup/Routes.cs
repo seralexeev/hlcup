@@ -20,9 +20,10 @@ namespace hlcup {
     public static class Routes {
         static JsonSerializer _jsonSerializer = new JsonSerializer();
         static byte[] emptyJson = Encoding.UTF8.GetBytes("{}");
+        public static byte[] empty = new byte[0];
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Task EntityById(HttpContext ctx, string entity, string idStr) {
+        public static byte[] EntityById(HttpContext ctx, string entity, string idStr) {
             if (!int.TryParse(idStr, out var id))
                 return NotFound(ctx);
 
@@ -39,7 +40,7 @@ namespace hlcup {
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Task Visits(HttpContext ctx, string idStr) {
+        public static byte[] Visits(HttpContext ctx, string idStr) {
             if (int.TryParse(idStr, out var id)
                 && id < AllData.users.Length && AllData.users[id] is User user) {
                 var visits = (IEnumerable<Visit>) user.Visits;
@@ -86,7 +87,7 @@ namespace hlcup {
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Task Avg(HttpContext ctx, string idStr) {
+        public static byte[] Avg(HttpContext ctx, string idStr) {
             if (!int.TryParse(idStr, out var id))
                 return NotFound(ctx);
 
@@ -192,7 +193,7 @@ namespace hlcup {
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Task Update(HttpContext ctx, string entity, string idStr) {
+        public static byte[] Update(HttpContext ctx, string entity, string idStr) {
             if (!int.TryParse(idStr, out var id))
                 return BadRequest(ctx);
 
@@ -231,7 +232,7 @@ namespace hlcup {
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Task Create(HttpContext ctx, string entity) {
+        public static byte[] Create(HttpContext ctx, string entity) {
             switch (entity) {
                 case "users":
                     var user = ReadFromBody<User>(ctx);
@@ -274,31 +275,29 @@ namespace hlcup {
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        static Task NotFound(HttpContext ctx) {
+        static byte[] NotFound(HttpContext ctx) {
             ctx.Response.StatusCode = (int) HttpStatusCode.NotFound;
-            return Task.CompletedTask;
+            return empty;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        static Task BadRequest(HttpContext ctx) {
+        static byte[] BadRequest(HttpContext ctx) {
             ctx.Response.StatusCode = (int) HttpStatusCode.BadRequest;
-            return Task.CompletedTask;
+            return empty;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        static Task Json(HttpContext ctx, object obj) {
+        static byte[] Json(HttpContext ctx, object obj) {
             ctx.Response.StatusCode = (int) HttpStatusCode.OK;
             ctx.Response.ContentType = "application/json";
-            Utf8Json.JsonSerializer.Serialize(ctx.Response.Body, obj);
-            return Task.CompletedTask;
+            return Utf8Json.JsonSerializer.Serialize(obj);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        static Task EmptyJson(HttpContext ctx) {
+        static byte[] EmptyJson(HttpContext ctx) {
             ctx.Response.StatusCode = (int) HttpStatusCode.OK;
             ctx.Response.ContentType = "application/json";
-            ctx.Response.Body.Write(emptyJson, 0, emptyJson.Length);
-            return Task.CompletedTask;
+            return emptyJson;
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
