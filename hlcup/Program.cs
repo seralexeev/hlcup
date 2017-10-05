@@ -25,11 +25,7 @@ namespace hlcup {
         }
 
         public static IWebHostBuilder GetHostBuilder(string port = "80") => new WebHostBuilder()
-            .UseKestrel(options => {
-                options.AllowSynchronousIO = true;
-                options.Limits.MaxConcurrentConnections = null;
-            })
-            .UseLibuv(options => { options.ThreadCount = 2; })
+            .UseKestrel()
             .UseUrls($"http://*:{port}")
             .Configure(cfg => {
                 cfg.UseResponseBuffering();

@@ -15,6 +15,9 @@ warmup () {
         curl -s -o /dev/null -H "Content-Type: application/json" -X POST -d '{"id":"0"}' http://127.0.0.1/users/new
         curl -s -o /dev/null -H "Content-Type: application/json" -X POST -d '{"id":"0"}' http://127.0.0.1/users/$1
     done
+
+    curl -s -o /dev/null http://127.0.0.1/users/10000000
+    curl -s -o /dev/null http://127.0.0.1/users/100000000000000
 }
 
 warmup & dotnet hlcup.dll
