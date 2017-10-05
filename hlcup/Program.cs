@@ -18,8 +18,8 @@ namespace hlcup {
             var dataPath = args.Length > 0 ? args[0] : "/data";
             var port = args.Length > 1 ? args[1] : "80";
 
-            ScanDir(dataPath);
             var isTest = ReadOptions($"{dataPath}/options.txt");
+            ScanDir(dataPath);
             println(isTest);
             GetHostBuilder(port).Build().Run();
         }
@@ -32,40 +32,40 @@ namespace hlcup {
             .UseLibuv(options => { options.ThreadCount = 2; })
             .UseUrls($"http://*:{port}")
             .Configure(cfg => {
-                cfg.Use((context, _) => {
+                cfg.UseResponseBuffering();
+                cfg.Run(ctx => {
                     try {
                         HandleRequest();
                     } catch {
-                        context.Response.StatusCode = (int) HttpStatusCode.BadRequest;
+                        ctx.Response.StatusCode = (int) HttpStatusCode.BadRequest;
                     }
-                    
-                    new BufferingWriteStream(context.Response.Body).Flush();
+ 
                     return Task.CompletedTask;
                     
                     Task HandleRequest() {
-                        var parts = context.Request.Path.Value.Trim('/').ToLower().Split('/');
-                        switch (context.Request.Method) {
+                        var parts = ctx.Request.Path.Value.Trim('/').ToLower().Split('/');
+                        switch (ctx.Request.Method) {
                             case "GET"
                             when parts.Length == 2 &&
                                  (parts[0] == "users" || parts[0] == "locations" || parts[0] == "visits"):
-                                return Routes.EntityById(context, parts[0], parts[1]);
+                                return Routes.EntityById(ctx, parts[0], parts[1]);
                             case "GET"
                             when parts.Length == 3 && parts[0] == "users" && parts[2] == "visits":
-                                return Routes.Visits(context, parts[1]);
+                                return Routes.Visits(ctx, parts[1]);
                             case "GET"
                             when parts.Length == 3 && parts[0] == "locations" && parts[2] == "avg":
-                                return Routes.Avg(context, parts[1]);
+                                return Routes.Avg(ctx, parts[1]);
                             case "POST"
                             when parts.Length == 2 &&
                                  (parts[0] == "users" || parts[0] == "locations" || parts[0] == "visits") &&
                                  parts[1] == "new":
-                                return Routes.Create(context, parts[0]);
+                                return Routes.Create(ctx, parts[0]);
                             case "POST"
                             when parts.Length == 2 &&
                                  (parts[0] == "users" || parts[0] == "locations" || parts[0] == "visits"):
-                                return Routes.Update(context, parts[0], parts[1]);
+                                return Routes.Update(ctx, parts[0], parts[1]);
                             default:
-                                context.Response.StatusCode = (int) HttpStatusCode.NotFound;
+                                ctx.Response.StatusCode = (int) HttpStatusCode.NotFound;
                                 return Task.CompletedTask;
                         }
                     }
