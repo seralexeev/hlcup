@@ -2,13 +2,12 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using static hlcup.Extensions;
 
 // ReSharper disable ArrangeTypeMemberModifiers
 
@@ -20,70 +19,63 @@ namespace hlcup {
 
             var isTest = ReadOptions($"{dataPath}/options.txt");
             ScanDir(dataPath);
-            println(isTest);
             GetHostBuilder(port).Build().Run();
         }
 
         public static IWebHostBuilder GetHostBuilder(string port = "80") => new WebHostBuilder()
             .UseKestrel()
             .UseUrls($"http://*:{port}")
-            .Configure(cfg => {
-                cfg.Run(ctx => {
-                    var body = Routes.empty;
-                    ctx.Response.Headers["Connection"] = "keep-alive";
-                    try {
-                        var parts = ctx.Request.Path.Value.ToLower().Split('/', StringSplitOptions.RemoveEmptyEntries);
-                        switch (ctx.Request.Method) {
-                            case "GET"
-                            when parts.Length == 2 && parts[0] is string entity &&
-                                 (entity == "users" ||
-                                  entity == "locations" ||
-                                  entity == "visits"):
-                                body = Routes.EntityById(ctx, entity, parts[1]);
-                                break;
+            .Configure(cfg => cfg.Run(ctx => HandleRequest(ctx)));
 
-                            case "GET"
-                            when parts.Length == 3 && parts[0] == "users" && parts[2] == "visits":
-                                body = Routes.Visits(ctx, parts[1]);
-                                break;
+        private static Task HandleRequest(HttpContext ctx) {
+            var body = Routes.empty;
 
-                            case "GET"
-                            when parts.Length == 3 && parts[0] == "locations" && parts[2] == "avg":
-                                body = Routes.Avg(ctx, parts[1]);
-                                break;
+            var parts = ctx.Request.Path.Value.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            var l = parts.Length;
+            if (l < 2 || parts[1].Length < 1 || parts[2].Length < 1) { }
 
-                            case "POST"
-                            when parts.Length == 2 && parts[1] == "new" && parts[0] is string entity &&
-                                 (entity == "users" ||
-                                  entity == "locations" ||
-                                  entity == "visits"):
-                                body = Routes.Create(ctx, entity);
-                                break;
+            var p0 = parts[0][0];
+            var p1 = parts[1][0];
 
-                            case "POST"
-                            when parts.Length == 2 && parts[0] is string entity &&
-                                 (entity == "users" ||
-                                  entity == "locations" ||
-                                  entity == "visits"):
-                                body = Routes.Update(ctx, parts[0], parts[1]);
-                                break;
+            switch (ctx.Request.Method) {
+                case "GET"
+                when l == 2 && (p0 == 'u' || p0 == 'l' || p0 == 'v'):
+                    body = Routes.EntityById(ctx, p0, parts[1]);
+                    break;
 
-                            default:
-                                ctx.Response.StatusCode = (int) HttpStatusCode.NotFound;
-                                break;
-                        }
-                    } catch {
-                        ctx.Response.StatusCode = (int) HttpStatusCode.BadRequest;
-                    }
+                case "GET"
+                when l == 3 && p0 == 'u' && parts[2].Length > 0 && parts[2][0] == 'v':
+                    body = Routes.Visits(ctx, parts[1]);
+                    break;
 
-                    if (body.Length > 0) {
-                        ctx.Response.ContentLength = body.Length;
-                        ctx.Response.Body.Write(body, 0, body.Length);
-                    }
+                case "GET"
+                when l == 3 && p0 == 'l' && parts[2].Length > 0 && parts[2][0] == 'a':
+                    body = Routes.Avg(ctx, parts[1]);
+                    break;
 
-                    return Task.CompletedTask;
-                });
-            });
+                case "POST"
+                when l == 2 && p1 == 'n' && (p0 == 'u' || p0 == 'l' || p0 == 'v'):
+                    body = Routes.Create(ctx, p0);
+                    break;
+
+                case "POST"
+                when l == 2 && (p0 == 'u' || p0 == 'l' || p0 == 'v'):
+                    body = Routes.Update(ctx, p0, parts[1]);
+                    break;
+
+                default:
+                    ctx.Response.StatusCode = StatusCodes.Status404NotFound;
+                    break;
+            }
+
+
+            if (body.Length > 0) {
+                ctx.Response.ContentLength = body.Length;
+                ctx.Response.Body.Write(body, 0, body.Length);
+            }
+
+            return Task.CompletedTask;
+        }
 
         static bool ReadOptions(string optsFile) {
             var opts = File.ReadLines(optsFile).ToArray();

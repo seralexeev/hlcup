@@ -23,16 +23,16 @@ namespace hlcup {
         public static byte[] empty = new byte[0];
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static byte[] EntityById(HttpContext ctx, string entity, string idStr) {
+        public static byte[] EntityById(HttpContext ctx, char entity, string idStr) {
             if (!int.TryParse(idStr, out var id))
                 return NotFound(ctx);
 
             switch (entity) {
-                case "users" when id < AllData.users.Length && AllData.users[id] is User user:
+                case 'u' when id < AllData.users.Length && AllData.users[id] is User user:
                     return Json(ctx, user);
-                case "locations" when id < AllData.locations.Length && AllData.locations[id] is Location location:
+                case 'l' when id < AllData.locations.Length && AllData.locations[id] is Location location:
                     return Json(ctx, location);
-                case "visits" when id < AllData.visits.Length && AllData.visits[id] is Visit visit:
+                case 'v' when id < AllData.visits.Length && AllData.visits[id] is Visit visit:
                     return Json(ctx, visit);
                 default:
                     return NotFound(ctx);
@@ -41,49 +41,47 @@ namespace hlcup {
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static byte[] Visits(HttpContext ctx, string idStr) {
-            if (int.TryParse(idStr, out var id)
-                && id < AllData.users.Length && AllData.users[id] is User user) {
-                var visits = (IEnumerable<Visit>) user.Visits;
+            if (!int.TryParse(idStr, out var id) || id >= AllData.users.Length || !(AllData.users[id] is User user))
+                return NotFound(ctx);
 
-                if (ctx.Request.Query.TryGetValue("fromDate", out var fromDateStr)) {
-                    if (int.TryParse(fromDateStr, out var fromDate)) {
-                        visits = visits.Where(x => x.visited_at > fromDate);
-                    } else {
-                        return BadRequest(ctx);
-                    }
+            var visits = (IEnumerable<Visit>) user.Visits;
+
+            if (ctx.Request.Query.TryGetValue("fromDate", out var fromDateStr)) {
+                if (int.TryParse(fromDateStr, out var fromDate)) {
+                    visits = visits.Where(x => x.visited_at > fromDate);
+                } else {
+                    return BadRequest(ctx);
                 }
-
-                if (ctx.Request.Query.TryGetValue("toDate", out var toDateStr)) {
-                    if (int.TryParse(toDateStr, out var toDate)) {
-                        visits = visits.Where(x => x.visited_at < toDate);
-                    } else {
-                        return BadRequest(ctx);
-                    }
-                }
-
-                var country = ctx.Request.Query["country"];
-                if (!string.IsNullOrEmpty(country)) {
-                    visits = visits.Where(x => x.Location?.country == country);
-                }
-
-                if (ctx.Request.Query.TryGetValue("toDistance", out var toDistanceStr)) {
-                    if (int.TryParse(toDistanceStr, out var toDistance)) {
-                        visits = visits.Where(x => x.Location?.distance < toDistance);
-                    } else {
-                        return BadRequest(ctx);
-                    }
-                }
-
-                return Json(ctx, new VisitsVm {
-                    visits = visits.OrderBy(x => x.visited_at).Select(x => new VisitsVm.VisitVm {
-                        mark = x.mark.Value,
-                        visited_at = x.visited_at.Value,
-                        place = x.Location.place
-                    })
-                });
             }
 
-            return NotFound(ctx);
+            if (ctx.Request.Query.TryGetValue("toDate", out var toDateStr)) {
+                if (int.TryParse(toDateStr, out var toDate)) {
+                    visits = visits.Where(x => x.visited_at < toDate);
+                } else {
+                    return BadRequest(ctx);
+                }
+            }
+
+            var country = ctx.Request.Query["country"];
+            if (!string.IsNullOrEmpty(country)) {
+                visits = visits.Where(x => x.Location?.country == country);
+            }
+
+            if (ctx.Request.Query.TryGetValue("toDistance", out var toDistanceStr)) {
+                if (int.TryParse(toDistanceStr, out var toDistance)) {
+                    visits = visits.Where(x => x.Location?.distance < toDistance);
+                } else {
+                    return BadRequest(ctx);
+                }
+            }
+
+            return Json(ctx, new VisitsVm {
+                visits = visits.OrderBy(x => x.visited_at).Select(x => new VisitsVm.VisitVm {
+                    mark = x.mark.Value,
+                    visited_at = x.visited_at.Value,
+                    place = x.Location.place
+                })
+            });
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -193,7 +191,7 @@ namespace hlcup {
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static byte[] Update(HttpContext ctx, string entity, string idStr) {
+        public static byte[] Update(HttpContext ctx, char entity, string idStr) {
             if (!int.TryParse(idStr, out var id))
                 return BadRequest(ctx);
 
@@ -208,19 +206,19 @@ namespace hlcup {
             }
 
             switch (entity) {
-                case "users":
+                case 'u':
                     if (id < AllData.users.Length && AllData.users[id] is User user) {
                         user.Update(update);
                         return EmptyJson(ctx);
                     }
                     return NotFound(ctx);
-                case "locations":
+                case 'l':
                     if (id < AllData.locations.Length && AllData.locations[id] is Location location) {
                         location.Update(update);
                         return EmptyJson(ctx);
                     }
                     return NotFound(ctx);
-                case "visits":
+                case 'v':
                     if (id < AllData.visits.Length && AllData.visits[id] is Visit visit) {
                         visit.Update(update);
                         return EmptyJson(ctx);
@@ -232,26 +230,26 @@ namespace hlcup {
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static byte[] Create(HttpContext ctx, string entity) {
+        public static byte[] Create(HttpContext ctx, char entity) {
             switch (entity) {
-                case "users":
+                case 'u':
                     var user = ReadFromBody<User>(ctx);
                     if (!user.IsValid())
                         return BadRequest(ctx);
-                    
+
                     AllData.users[user.id.Value] = user;
                     user.CalculateAge();
                     return EmptyJson(ctx);
 
-                case "locations":
+                case 'l':
                     var location = ReadFromBody<Location>(ctx);
                     if (!location.IsValid())
                         return BadRequest(ctx);
-                    
+
                     AllData.locations[location.id.Value] = location;
                     return EmptyJson(ctx);
 
-                case "visits":
+                case 'v':
                     var visit = ReadFromBody<Visit>(ctx);
                     if (!visit.IsValid())
                         return BadRequest(ctx);
@@ -267,7 +265,7 @@ namespace hlcup {
                         usr.Visits.Add(visit);
                         visit.User = usr;
                     }
-                    
+
                     return EmptyJson(ctx);
                 default:
                     return BadRequest(ctx);
@@ -276,45 +274,31 @@ namespace hlcup {
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static byte[] NotFound(HttpContext ctx) {
-            ctx.Response.StatusCode = (int) HttpStatusCode.NotFound;
+            ctx.Response.StatusCode = StatusCodes.Status404NotFound;
             return empty;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static byte[] BadRequest(HttpContext ctx) {
-            ctx.Response.StatusCode = (int) HttpStatusCode.BadRequest;
+            ctx.Response.StatusCode = StatusCodes.Status400BadRequest;
             return empty;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static byte[] Json(HttpContext ctx, object obj) {
-            ctx.Response.StatusCode = (int) HttpStatusCode.OK;
+            ctx.Response.StatusCode = StatusCodes.Status200OK;
             ctx.Response.ContentType = "application/json";
             return Utf8Json.JsonSerializer.Serialize(obj);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static byte[] EmptyJson(HttpContext ctx) {
-            ctx.Response.StatusCode = (int) HttpStatusCode.OK;
+            ctx.Response.StatusCode = StatusCodes.Status200OK;
             ctx.Response.ContentType = "application/json";
             return emptyJson;
         }
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static T ReadFromBody<T>(HttpContext ctx) => Utf8Json.JsonSerializer.Deserialize<T>(ctx.Request.Body);
-    }
-
-    public class VisitsVm : Entity {
-        public IEnumerable<VisitVm> visits;
-
-        public class VisitVm {
-            public int mark;
-            public int visited_at;
-            public string place;
-        }
-    }
-
-    public class Avg : Entity {
-        public double avg;
     }
 }

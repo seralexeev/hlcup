@@ -2,6 +2,7 @@
 using System.Runtime.Serialization;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+
 // ReSharper disable ClassNeverInstantiated.Global
 // ReSharper disable PossibleInvalidOperationException
 
@@ -17,11 +18,7 @@ namespace hlcup {
         public static long currentDate;
     }
 
-    public abstract class Entity {
-        [JsonIgnore, IgnoreDataMember] public byte[] bytes;
-    }
-
-    public class User : Entity {
+    public class User {
         public int? id;
         public string email;
         public string first_name;
@@ -29,10 +26,9 @@ namespace hlcup {
         public char? gender;
         public int? birth_date;
 
-        [JsonIgnore, IgnoreDataMember]
-        public int age;
+        [JsonIgnore, IgnoreDataMember] public int age;
 
-        public void CalculateAge() => age = (int)((AllData.currentDate - birth_date.Value) / 31557600);
+        public void CalculateAge() => age = (int) ((AllData.currentDate - birth_date.Value) / 31557600);
 
         public bool IsValid() => id != null && email != null && first_name != null && last_name != null &&
                                  gender != null && birth_date != null;
@@ -64,7 +60,7 @@ namespace hlcup {
         public List<Visit> Visits { get; } = new List<Visit>();
     }
 
-    public class Location : Entity {
+    public class Location {
         public int? id;
         public string place;
         public string country;
@@ -95,7 +91,7 @@ namespace hlcup {
         public List<Visit> Visits { get; } = new List<Visit>();
     }
 
-    public class Visit : Entity {
+    public class Visit {
         public int? id;
         public int? location;
         public int? user;
@@ -135,5 +131,19 @@ namespace hlcup {
 
         [JsonIgnore, IgnoreDataMember]
         public Location Location { get; set; }
+    }
+    
+    public class VisitsVm {
+        public IEnumerable<VisitVm> visits;
+
+        public class VisitVm {
+            public int mark;
+            public int visited_at;
+            public string place;
+        }
+    }
+
+    public class Avg {
+        public double avg;
     }
 }
